@@ -67,13 +67,15 @@ BASE_CONTAINER_BUILD_DIR=${REPO_PATH}/build_$(echo $(basename ${DOCKER_IMAGE})|s
 CPP_CONTAINER_BUILD_DIR=${BASE_CONTAINER_BUILD_DIR}/cpp
 PYTHON_CONTAINER_BUILD_DIR=${BASE_CONTAINER_BUILD_DIR}/python
 
-
+# must not expand ${WORKSPACE}. Expansion would be done in calling shells context which
+# doesn't have WORKSPACE set. Allowing expansion leads to broken script
+# where cd ${WORKSPACE} enters users home directory instead of workspace
 BUILD_SCRIPT="#!/bin/bash
 set -e
 WORKSPACE=${REPO_PATH_IN_CONTAINER}
 PREBUILD_SCRIPT=${REPO_PATH_IN_CONTAINER}/ci/gpu/prebuild.sh
 BUILD_SCRIPT=${REPO_PATH_IN_CONTAINER}/ci/gpu/build.sh
-cd ${WORKSPACE}
+cd \${WORKSPACE}
 if [ -f \${PREBUILD_SCRIPT} ]; then
     source \${PREBUILD_SCRIPT}
 fi
@@ -90,6 +92,10 @@ fi
 mkdir -p ${BASE_CONTAINER_BUILD_DIR}
 mkdir -p ${CPP_CONTAINER_BUILD_DIR}
 mkdir -p ${PYTHON_CONTAINER_BUILD_DIR}
+# Create build directories. This is to ensure correct owner for directories. Without these lines
+# docker volume mounting side effect is that build directorier would be owned by root
+mkdir -p "${REPO_PATH}/build"
+mkdir -p "${REPO_PATH}/python/build"
 echo "${BUILD_SCRIPT}" > ${CPP_CONTAINER_BUILD_DIR}/build.sh
 chmod ugo+x ${CPP_CONTAINER_BUILD_DIR}/build.sh
 
